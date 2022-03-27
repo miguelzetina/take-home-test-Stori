@@ -13,6 +13,11 @@ aws_region = os.environ['AWS_REGION']
 
 log_level = os.getenv('LOG_LEVEL')
 
+to_email = os.getenv('TO_EMAIL', 'storimiguelzetina@gmail.com')
+from_email = os.getenv('FROM_EMAIL',
+                       'Stori Take Home <storimiguelzetina@gmail.com>')
+table_txn = os.getenv('TABLE_TXN', 'stori_txn')
+
 s3_resource = boto3.resource('s3', region_name=aws_region)
 dynamo_client = boto3.client('dynamodb', region_name=aws_region)
 ses_client = boto3.client('ses', region_name=aws_region)
@@ -25,7 +30,7 @@ debit_type = 'DEBIT'
 
 
 class Transaction:
-    def __init__(self, txn_id, txn_date, txn_amount):
+    def __init__(self, txn_id: str, txn_date: datetime, txn_amount: Decimal):
         self.txn_id = txn_id
         self.txn_amount = txn_amount
         self.txn_date = txn_date
@@ -36,7 +41,7 @@ class ResumeTypeTransaction:
     qty = 0
     total_amount = Decimal(0)
 
-    def add_txn_amount(self, amount):
+    def add_txn_amount(self, amount: Decimal):
         self.qty += 1
         self.total_amount += amount
 
@@ -77,7 +82,9 @@ def make_resume_txns(txns: list):
             credit_resume.add_txn_amount(txn.txn_amount)
         else:
             debit_resume.add_txn_amount(txn.txn_amount)
-        months_txn[txn.txn_date.month] = months_txn.get(txn.txn_date.month, 0) + 1
+        months_txn[txn.txn_date.month] = (
+            months_txn.get(txn.txn_date.month, 0) + 1
+        )
     return {
         'balance': balance,
         'average_debit': debit_resume.average,
@@ -87,9 +94,12 @@ def make_resume_txns(txns: list):
 
 
 @tracer.capture_method
-def insert_txn_db(txn_id: str, txn_amount: Decimal, txn_date: datetime, txn_type: str):
+def insert_txn_db(txn_id: str,
+                  txn_amount: Decimal,
+                  txn_date: datetime,
+                  txn_type: str):
     dynamo_client.put_item(
-        TableName='stori_txn',
+        TableName=table_txn,
         Item={
             'txn_id': {
                 'S': txn_id
@@ -114,16 +124,13 @@ def save_txns(list_txns: list):
 
 
 @tracer.capture_method
-def send_email(to_email: str,
+def send_email(destination_email: str,
                subject: str,
-               body_html: str = None,
-               body_text: str = None):
+               body_html: str = '',
+               body_text: str = ''):
     destination = {
         'ToAddresses': [
-            to_email,
-        ],
-        'BccAddresses': [
-            'storimiguelzetina@gmail.com',
+            destination_email,
         ]
     }
 
@@ -139,7 +146,7 @@ def send_email(to_email: str,
                 },
                 'Text': {
                     'Charset': charset,
-                    'Data': body_text or 'Transactions resume from Stori',
+                    'Data': body_text,
                 },
             },
             'Subject': {
@@ -147,7 +154,7 @@ def send_email(to_email: str,
                 'Data': subject,
             },
         },
-        Source='Stori Take Home <storimiguelzetina@gmail.com>',
+        Source=from_email,
     )
     logger.info(response)
 
@@ -156,7 +163,9 @@ def convert_resume_to_html(resume_data):
     months_resume = ''
     months_data = resume_data['transactions_by_month']
     for month in months_data:
-        months_resume += f'<p>Number of transactions in {calendar.month_name[month]}: {months_data[month]}</p>'
+        months_resume += f'<p>Number of transactions in '
+        months_resume += f'{calendar.month_name[month]}: '
+        months_resume += f'{months_data[month]}</p>'
     html_text = f"""<!DOCTYPE html>
 <html>
 <body>
@@ -190,6 +199,9 @@ def handler(event, context):
         save_txns(account_txns)
         logger.info(f'Total transactions: {len(account_txns)}')
         resume_txns = make_resume_txns(account_txns)
-        send_email('storimiguelzetina@gmail.com', 'Stori Resume', convert_resume_to_html(resume_txns))
+        send_email(to_email,
+                   'Stori Resume',
+                   convert_resume_to_html(resume_txns),
+                   'Transactions resume from Stori')
         logger.info(resume_txns)
         logger.info(f'Success: {bucket_name} - {key_name}')
