@@ -1,3 +1,4 @@
+import calendar
 import csv
 import os
 from datetime import datetime
@@ -14,6 +15,7 @@ log_level = os.getenv('LOG_LEVEL')
 
 s3_resource = boto3.resource('s3', region_name=aws_region)
 dynamo_client = boto3.client('dynamodb', region_name=aws_region)
+ses_client = boto3.client('ses', region_name=aws_region)
 
 logger = Logger()
 tracer = Tracer()
@@ -112,6 +114,68 @@ def save_txns(list_txns: list):
 
 
 @tracer.capture_method
+def send_email(to_email: str,
+               subject: str,
+               body_html: str = None,
+               body_text: str = None):
+    destination = {
+        'ToAddresses': [
+            to_email,
+        ],
+        'BccAddresses': [
+            'storimiguelzetina@gmail.com',
+        ]
+    }
+
+    charset = 'UTF-8'
+
+    response = ses_client.send_email(
+        Destination=destination,
+        Message={
+            'Body': {
+                'Html': {
+                    'Charset': charset,
+                    'Data': body_html or '',
+                },
+                'Text': {
+                    'Charset': charset,
+                    'Data': body_text or 'Transactions resume from Stori',
+                },
+            },
+            'Subject': {
+                'Charset': charset,
+                'Data': subject,
+            },
+        },
+        Source='Stori Take Home <storimiguelzetina@gmail.com>',
+    )
+    logger.info(response)
+
+
+def convert_resume_to_html(resume_data):
+    months_resume = ''
+    months_data = resume_data['transactions_by_month']
+    for month in months_data:
+        months_resume += f'<p>Number of transactions in {calendar.month_name[month]}: {months_data[month]}</p>'
+    html_text = f"""<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://blog.storicard.com/wp-content/uploads/2019/07/Stori-horizontal-10.jpg" alt="Stori Logo Horizontal" width="250">
+
+<h1>Resume transactions</h1>
+
+<p>Total balance is {resume_data['balance']} </p>
+{months_resume}
+<p>Average debit amount: {resume_data['average_debit']}</p>
+<p>Average credit amount: {resume_data['average_credit']}</p>
+
+</body>
+</html>"""
+    return html_text
+
+
+@tracer.capture_method
 @logger.inject_lambda_context
 def handler(event, context):
     for record in event['Records']:
@@ -126,7 +190,6 @@ def handler(event, context):
         save_txns(account_txns)
         logger.info(f'Total transactions: {len(account_txns)}')
         resume_txns = make_resume_txns(account_txns)
-        # TODO
-        # Send email
+        send_email('storimiguelzetina@gmail.com', 'Stori Resume', convert_resume_to_html(resume_txns))
         logger.info(resume_txns)
         logger.info(f'Success: {bucket_name} - {key_name}')
