@@ -13,6 +13,7 @@ aws_region = os.environ['AWS_REGION']
 log_level = os.getenv('LOG_LEVEL')
 
 s3_resource = boto3.resource('s3', region_name=aws_region)
+dynamo_client = boto3.client('dynamodb', region_name=aws_region)
 
 logger = Logger()
 tracer = Tracer()
@@ -63,7 +64,7 @@ def read_txns_file(local_file):
 
 
 @tracer.capture_method
-def make_resume_txns(txns):
+def make_resume_txns(txns: list):
     months_txn = dict()
     credit_resume = ResumeTypeTransaction()
     debit_resume = ResumeTypeTransaction()
@@ -84,6 +85,33 @@ def make_resume_txns(txns):
 
 
 @tracer.capture_method
+def insert_txn_db(txn_id: str, txn_amount: Decimal, txn_date: datetime, txn_type: str):
+    dynamo_client.put_item(
+        TableName='stori_txn',
+        Item={
+            'txn_id': {
+                'S': txn_id
+            },
+            'txn_amount': {
+                'N': str(txn_amount)
+            },
+            'txn_date': {
+                'S': txn_date.isoformat()
+            },
+            'txn_type': {
+                'S': txn_type
+            }
+        }
+    )
+
+
+@tracer.capture_method
+def save_txns(list_txns: list):
+    for txn in list_txns:
+        insert_txn_db(txn.txn_id, txn.txn_amount, txn.txn_date, txn.txn_type)
+
+
+@tracer.capture_method
 @logger.inject_lambda_context
 def handler(event, context):
     for record in event['Records']:
@@ -95,9 +123,10 @@ def handler(event, context):
         get_s3_object(bucket_name, key_name, local_file)
         logger.info(f'File downloaded from S3: {bucket_name} - {key_name}')
         account_txns = read_txns_file(local_file)
+        save_txns(account_txns)
         logger.info(f'Total transactions: {len(account_txns)}')
         resume_txns = make_resume_txns(account_txns)
         # TODO
-        # Save in DB and send email
+        # Send email
         logger.info(resume_txns)
         logger.info(f'Success: {bucket_name} - {key_name}')
