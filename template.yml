@@ -13,20 +13,27 @@ Resources:
       SourceArn: !GetAtt Bucket1.Arn
   TxnTable:
     Type: AWS::Serverless::SimpleTable
-    PrimaryKey:
-      Name: txn_id
-      Type: String
+    Properties:
+      PrimaryKey:
+        Name: txn_id
+        Type: String
   Bucket1:
     Type: 'AWS::S3::Bucket'
   ProcessTxnsFile:
     Type: 'AWS::Serverless::Function'
     Properties:
+      Policies:
+        - SESCrudPolicy:
+            IdentityName: '*'
+        - S3FullAccessPolicy:
+            BucketName: '*'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TxnTable
       Handler: process_txns_file.handler
       Runtime: python3.9
       CodeUri: ./app
       Architectures:
         - x86_64
-      Role: arn:aws:iam::509169004202:role/service-role/process_txns_file-role-z1fbdgcm
       Environment:
         Variables:
           TABLE_TXN: !Ref TxnTable
