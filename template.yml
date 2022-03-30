@@ -13,6 +13,9 @@ Resources:
       SourceArn: !GetAtt Bucket1.Arn
   TxnTable:
     Type: AWS::Serverless::SimpleTable
+    PrimaryKey:
+      Name: txn_id
+      Type: String
   Bucket1:
     Type: 'AWS::S3::Bucket'
   ProcessTxnsFile:
