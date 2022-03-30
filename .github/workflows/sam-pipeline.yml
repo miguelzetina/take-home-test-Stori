@@ -17,4 +17,4 @@ jobs:
       # sam build
       - run: sam build --use-container
       # sam deploy
-      - run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name take-home-test-Stori-develop
+      - run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name take-home-test-Stori-develop --s3-bucket Aaws-sam-cli-managed-default-samclisourcebucket-19bletawg5z85
