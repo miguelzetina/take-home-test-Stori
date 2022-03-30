@@ -3,7 +3,19 @@ Transform: 'AWS::Serverless-2016-10-31'
 Description: An AWS Serverless Specification template describing your function.
 
 Resources:
-  processtxnsfile:
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt ProcessTxnsFile.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: 's3.amazonaws.com'
+      SourceAccount: !Sub ${AWS::AccountId}
+      SourceArn: !GetAtt Bucket1.Arn
+  TxnTable:
+    Type: AWS::Serverless::SimpleTable
+  Bucket1:
+    Type: 'AWS::S3::Bucket'
+  ProcessTxnsFile:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: process_txns_file.handler
@@ -11,15 +23,10 @@ Resources:
       CodeUri: ./app
       Architectures:
         - x86_64
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref TxnTable
-        - S3CrudPolicy:
-            BucketName: !Ref Bucket1
+      Role: arn:aws:iam::509169004202:role/service-role/process_txns_file-role-z1fbdgcm
       Environment:
         Variables:
           TABLE_TXN: !Ref TxnTable
-          AWS_REGION: us-east-1
       Events:
         BucketEvent1:
           Type: S3
@@ -36,7 +43,10 @@ Resources:
                   - Name: suffix
                     Value: .csv
 
-  TxnTable:
-    Type: AWS::Serverless::SimpleTable
-  Bucket1:
-    Type: 'AWS::S3::Bucket'
+Outputs:
+  ProcessTxnsFileFunction:
+    Description: "Process Transactions File Function ARN"
+    Value: !GetAtt ProcessTxnsFile.Arn
+  HelloWorldFunctionIamRole:
+    Description: "Bucket name for Process Transactions File function"
+    Value: !GetAtt Bucket1.Arn
