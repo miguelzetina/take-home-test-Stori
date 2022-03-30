@@ -10,14 +10,14 @@ Resources:
       Action: 'lambda:InvokeFunction'
       Principal: 's3.amazonaws.com'
       SourceAccount: !Sub ${AWS::AccountId}
-      SourceArn: !GetAtt Bucket1.Arn
+      SourceArn: !GetAtt InputBucket.Arn
   TxnTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       PrimaryKey:
         Name: txn_id
         Type: String
-  Bucket1:
+  InputBucket:
     Type: 'AWS::S3::Bucket'
   ProcessTxnsFile:
     Type: 'AWS::Serverless::Function'
@@ -42,7 +42,7 @@ Resources:
           Type: S3
           Properties:
             Bucket:
-              Ref: Bucket1
+              Ref: InputBucket
             Events:
               - 's3:ObjectCreated:*'
             Filter:
@@ -59,4 +59,4 @@ Outputs:
     Value: !GetAtt ProcessTxnsFile.Arn
   HelloWorldFunctionIamRole:
     Description: "Bucket name for Process Transactions File function"
-    Value: !GetAtt Bucket1.Arn
+    Value: !GetAtt InputBucket.Arn
