@@ -37,7 +37,7 @@ class Transaction:
         self.txn_type = credit_type if txn_amount >= 0 else debit_type
 
 
-class ResumeTypeTransaction:
+class SummaryTypeTransaction:
     qty = 0
     total_amount = Decimal(0)
 
@@ -71,24 +71,24 @@ def read_txns_file(local_file):
 
 
 @tracer.capture_method
-def make_resume_txns(txns: list):
+def make_summary_txns(txns: list):
     months_txn = dict()
-    credit_resume = ResumeTypeTransaction()
-    debit_resume = ResumeTypeTransaction()
+    credit_summary = SummaryTypeTransaction()
+    debit_summary = SummaryTypeTransaction()
     balance = 0
     for txn in txns:
         balance += txn.txn_amount
         if txn.txn_type == credit_type:
-            credit_resume.add_txn_amount(txn.txn_amount)
+            credit_summary.add_txn_amount(txn.txn_amount)
         else:
-            debit_resume.add_txn_amount(txn.txn_amount)
+            debit_summary.add_txn_amount(txn.txn_amount)
         months_txn[txn.txn_date.month] = (
             months_txn.get(txn.txn_date.month, 0) + 1
         )
     return {
         'balance': balance,
-        'average_debit': debit_resume.average,
-        'average_credit': credit_resume.average,
+        'average_debit': debit_summary.average,
+        'average_credit': credit_summary.average,
         'transactions_by_month': months_txn
     }
 
@@ -159,25 +159,25 @@ def send_email(destination_email: str,
     logger.info(response)
 
 
-def convert_resume_to_html(resume_data):
-    months_resume = ''
-    months_data = resume_data['transactions_by_month']
+def convert_summary_to_html(summary_data):
+    months_summary = ''
+    months_data = summary_data['transactions_by_month']
     for month in months_data:
-        months_resume += f'<p>Number of transactions in '
-        months_resume += f'{calendar.month_name[month]}: '
-        months_resume += f'{months_data[month]}</p>'
+        months_summary += f'<p>Number of transactions in '
+        months_summary += f'{calendar.month_name[month]}: '
+        months_summary += f'{months_data[month]}</p>'
     html_text = f"""<!DOCTYPE html>
 <html>
 <body>
 
 <img src="https://blog.storicard.com/wp-content/uploads/2019/07/Stori-horizontal-10.jpg" alt="Stori Logo Horizontal" width="250">
 
-<h1>Resume transactions</h1>
+<h1>Transaction summary</h1>
 
-<p>Total balance is {resume_data['balance']} </p>
-{months_resume}
-<p>Average debit amount: {resume_data['average_debit']}</p>
-<p>Average credit amount: {resume_data['average_credit']}</p>
+<p>Total balance is {summary_data['balance']} </p>
+{months_summary}
+<p>Average debit amount: {summary_data['average_debit']}</p>
+<p>Average credit amount: {summary_data['average_credit']}</p>
 
 </body>
 </html>"""
@@ -198,10 +198,10 @@ def handler(event, context):
         account_txns = read_txns_file(local_file)
         save_txns(account_txns)
         logger.info(f'Total transactions: {len(account_txns)}')
-        resume_txns = make_resume_txns(account_txns)
+        summary_txns = make_summary_txns(account_txns)
         send_email(to_email,
-                   'Stori Resume',
-                   convert_resume_to_html(resume_txns),
-                   'Transactions resume from Stori')
-        logger.info(resume_txns)
+                   'Transaction Summary from Stori',
+                   convert_summary_to_html(summary_txns),
+                   'Transaction Summary from Stori')
+        logger.info(summary_txns)
         logger.info(f'Success: {bucket_name} - {key_name}')
