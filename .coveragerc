@@ -1,0 +1,15 @@
+# config file to control coverage.py
+[run]
+omit = tests/*
+       */conftest.py
+       venv/*
+
+[report]
+skip_empty = true
+
+[html]
+directory = ./reports/cov_html
+title = cov_html
+
+[xml]
+output = ./reports/cov.xml

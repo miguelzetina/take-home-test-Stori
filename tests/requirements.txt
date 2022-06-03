@@ -1,0 +1,7 @@
+coverage
+pytest
+pytest-cov
+pytest-html
+pytest-html-reporter
+pytest-pythonpath
+pytest-env

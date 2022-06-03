@@ -2,7 +2,7 @@ import calendar
 import csv
 import os
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools import Tracer
@@ -32,27 +32,22 @@ debit_type = 'DEBIT'
 class Transaction:
     def __init__(self, txn_id: str, txn_date: datetime, txn_amount: Decimal):
         self.txn_id = txn_id
-        self.txn_amount = txn_amount
+        self.txn_amount = txn_amount.quantize(Decimal('.01'), rounding=ROUND_DOWN)
         self.txn_date = txn_date
         self.txn_type = credit_type if txn_amount >= 0 else debit_type
 
 
 class SummaryTypeTransaction:
     qty = 0
-    total_amount = Decimal(0)
+    total_amount = Decimal(0).quantize(Decimal('.01'), rounding=ROUND_DOWN)
 
     def add_txn_amount(self, amount: Decimal):
         self.qty += 1
-        self.total_amount += amount
+        self.total_amount += amount.quantize(Decimal('.01'), rounding=ROUND_DOWN)
 
     @property
     def average(self):
-        return self.total_amount / self.qty
-
-
-@tracer.capture_method
-def get_s3_object(bucket, key_name, local_file):
-    s3_resource.Bucket(bucket).download_file(key_name, local_file)
+        return (self.total_amount / self.qty).quantize(Decimal('.01'), rounding=ROUND_DOWN)
 
 
 @tracer.capture_method
@@ -185,15 +180,20 @@ def convert_summary_to_html(summary_data):
 
 
 @tracer.capture_method
-@logger.inject_lambda_context
+def download_file_s3(bucket_name, file_name):
+    tmpdir = tempfile.mkdtemp()
+    local_file = os.path.join(tmpdir, file_name)
+    s3_resource.Bucket(bucket_name).download_file(file_name, local_file)
+    return local_file
+
+
+@tracer.capture_method
 def handler(event, context):
     for record in event['Records']:
-        tmpdir = tempfile.mkdtemp()
         bucket_name = record['s3']['bucket']['name']
         key_name = record['s3']['object']['key']
         logger.info(f'File to process: {key_name}')
-        local_file = os.path.join(tmpdir, key_name)
-        get_s3_object(bucket_name, key_name, local_file)
+        local_file = download_file_s3(bucket_name, key_name)
         logger.info(f'File downloaded from S3: {bucket_name} - {key_name}')
         account_txns = read_txns_file(local_file)
         save_txns(account_txns)

@@ -71,13 +71,13 @@ After you have created the stack using the CloudFormation template, you can manu
 
 ### Manually testing
 
-You can use the file stori_account_1234567890.csv file in the repository /**app**/**examples** directory. After the files have been uploaded, you can see the transactions saved in **TxnTable** table of your stack. You can also view the CloudWatch logs for each of the functions in order to see the details of their execution.
+You can use the file stori_account_1234567890.csv file in the repository /**tests**/**app**/**units**/**examples** directory. After the files have been uploaded, you can see the transactions saved in **TxnTable** table of your stack. You can also view the CloudWatch logs for each of the functions in order to see the details of their execution.
 
 You can use the following commands to copy a sample file from the provided S3 bucket into the input bucket of your stack.
 
 ```bash
 INPUT_BUCKET=$(aws cloudformation describe-stack-resource --stack-name take-home-test-stori --logical-resource-id InputBucket --query "StackResourceDetail.PhysicalResourceId" --output text)
-aws s3 cp ./app/examples/stori_account_1234567890.csv s3://${INPUT_BUCKET}/stori_account_1234567890.csv
+aws s3 cp ./tests/app/units/examples/stori_account_1234567890.csv s3://${INPUT_BUCKET}/stori_account_1234567890.csv
 ```
 
 Once the input files has been uploaded to the input bucket, a series of events are put into motion.

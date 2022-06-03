@@ -132,3 +132,6 @@ dmypy.json
 .aws-sam/
 .idea/
 samconfig.toml
+
+# Tests reports
+reports/
