@@ -55,7 +55,7 @@ Resources:
                     Value: .csv
     Metadata:
       DockerTag: !Sub '${AWS::StackName}-ProcessTransactionsFile-v1.0.0'
-      DockerContext: ./draft_profiles
+      DockerContext: ./app
       Dockerfile: Dockerfile
 Outputs:
   ProcessTxnsFileFunction:
