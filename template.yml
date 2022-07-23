@@ -22,6 +22,7 @@ Resources:
   ProcessTxnsFile:
     Type: 'AWS::Serverless::Function'
     Properties:
+      PackageType: Image
       Policies:
         - SESCrudPolicy:
             IdentityName: '*'
@@ -52,7 +53,10 @@ Resources:
                     Value: stori_account_
                   - Name: suffix
                     Value: .csv
-
+    Metadata:
+      DockerTag: !Sub '${AWS::StackName}-ProcessTransactionsFile-v1.0.0'
+      DockerContext: ./draft_profiles
+      Dockerfile: Dockerfile
 Outputs:
   ProcessTxnsFileFunction:
     Description: "Process Transactions File Function ARN"
